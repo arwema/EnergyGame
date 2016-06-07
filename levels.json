@@ -1,0 +1,12 @@
+[
+{
+    "name":"Level 2",
+    "appliances":[
+                    {"type":"centrifuge", "rating":1020, "icon": "images/centrifuge.png"},
+                    {"type":"warmer", "rating":1020, "icon": "images/warmer.png"},
+                    {"type":"microscope", "rating":1020, "icon": "images/microscope.png"}
+    ]
+
+}
+
+]
