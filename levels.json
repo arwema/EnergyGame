@@ -3,7 +3,9 @@
     "name":"Level 0",
     "appliances":[
       {"type":"centrifuge", "rating":1020, "icon": "images/centrifuge.png"},
-      {"type":"centrifuge", "rating":1020, "icon": "images/centrifuge.png"}
+      {"type":"centrifuge", "rating":1020, "icon": "images/warmer.png"},
+      {"type":"centrifuge", "rating":1020, "icon": "images/warmer.png"},
+      {"type":"centrifuge", "rating":1020, "icon": "images/warmer.png"}
     ]
   },
   {
@@ -43,6 +45,11 @@
         "type": "warmer",
         "rating": 1020,
         "icon": "images/warmer.png"
+      },
+      {
+        "type": "microscope",
+        "rating": 1020,
+        "icon": "images/microscope.png"
       },
       {
         "type": "microscope",

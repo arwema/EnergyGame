@@ -2,7 +2,7 @@ from kivy.app import App
 
 import kivy
 from kivy.uix.popup import Popup
-from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.behaviors import ToggleButtonBehavior
 from kivy.uix.button import Button
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
@@ -13,6 +13,7 @@ from kivy.uix.button import Button
 from kivy.uix.widget import Widget
 from kivy.uix.image import Image
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.anchorlayout import AnchorLayout
 from math import sin
 from kivy.garden.graph import Graph, MeshLinePlot
 import json
@@ -56,15 +57,19 @@ class Level:
         self.appliances.append(appliance)
 
 
-class Appliance(ButtonBehavior, Image):
-    def __init__(self, typ, icon, rating):
+class Appliance(ToggleButtonBehavior, Image):
+    def __init__(self, typ, icon, rating, **kwargs):
+        super(Appliance, self).__init__(**kwargs)
         self.type = typ
         self.icon = icon
         self.rating = rating
-        self.run_state = False
+        self.source = icon
 
-    def switch(self):
-        self.run_state = not self.run_state
+    def on_state(self, widget, value):
+        if value == 'down':
+            self.source = self.icon
+        else:
+            self.source = "images/off.png"
 
 
 class WelcomeScreen(Screen):
@@ -105,7 +110,7 @@ class GameScreen(Screen):
     level = None
     plot = None
     appliances = []
-    locations = [(-0.15, -0.15), (-0.03, -0.15), (0.1, -0.15), (0.2, -0.15), (0.2, -0.15), (0.2, -0.15)]
+    locations = [(0.15, 0.15), (0.25, 0.15), (0.38, 0.15), (0.5, 0.15), (0.62, 0.15), (0.73, 0.15)]
     layout = FloatLayout()
 
     def update(self, dt):
@@ -119,9 +124,11 @@ class GameScreen(Screen):
         background = Image(source="images/background2.png")
         clinic = Image(source="images/clinic.png", pos_hint={'x': .15, 'y': -0.05}, size_hint=(.7, .7))
         sun = Image(source="images/sun.png", pos_hint={'x': .15, 'y': 0.3}, size_hint=(.7, .7))
+
         self.layout.add_widget(background)
         self.layout.add_widget(clinic)
         self.layout.add_widget(sun)
+
         back_button = Button(text="<< Menu",
                               font_size='18dp',
                               pos_hint={'x': .05, 'y': 0.85},
@@ -129,8 +136,9 @@ class GameScreen(Screen):
         self.layout.add_widget(back_button)
 
         for i, appliance in enumerate(self.game_session.level.appliances):
-            this_appliance = Image(source=appliance.icon, pos_hint={'x': self.locations[i][0], 'y': self.locations[i][1]}, size_hint=(.7, .7))
-            self.layout.add_widget(this_appliance)
+            appliance.pos_hint = {'x': self.locations[i][0], 'y': self.locations[i][1]}
+            appliance.size_hint = (.12, .12)
+            self.layout.add_widget(appliance)
 
         graph = Graph(x_ticks_minor=5,
                       x_ticks_major=25, y_ticks_major=1,
