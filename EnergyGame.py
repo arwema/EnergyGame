@@ -1,19 +1,12 @@
-from kivy.app import App
-
-import kivy
 from kivy.uix.popup import Popup
 from kivy.uix.behaviors import ToggleButtonBehavior
-from kivy.uix.button import Button
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
 from kivy.app import App
 from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.uix.widget import Widget
 from kivy.uix.image import Image
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.anchorlayout import AnchorLayout
 from math import sin
 from kivy.garden.graph import Graph, MeshLinePlot
 import json
@@ -29,6 +22,8 @@ class GameSession:
     level = None
     welcome_screen = None
     game_screen = None
+    current_load = 0
+    time = 0
 
     def __init__(self):
         pass
@@ -44,6 +39,14 @@ class GameSession:
 
     def set_game_screen(self, game_screen):
         self.game_screen = game_screen
+
+    def set_current_load(self):
+        load = 0
+        if self.level:
+            for appliance in self.level.appliances:
+                if appliance.state == 'down':
+                    load += int(appliance.rating)
+        self.current_load = load
 
 
 class Level:
@@ -106,19 +109,26 @@ class WelcomeScreen(Screen):
 
 
 class GameScreen(Screen):
+    current_load_label = None
     game_session = None
     level = None
-    plot = None
+    load_plot = None
     appliances = []
     locations = [(0.15, 0.15), (0.25, 0.15), (0.38, 0.15), (0.5, 0.15), (0.62, 0.15), (0.73, 0.15)]
     layout = FloatLayout()
 
     def update(self, dt):
-        self.plot.points = [(x, sin(x / 10.)) for x in range(0, 101)]
+        self.load_plot.points = [(x, sin(x / 10.)) for x in range(0, 101)]
 
     def __init__(self, game_session, **kwargs):
         super(GameScreen, self).__init__(**kwargs)
         self.game_session = game_session
+        self.current_load_label = Label(text=str(self.game_session.current_load))
+        self.graph = Graph(x_ticks_minor=10,
+                      x_ticks_major=30, y_ticks_major=1,
+                      y_grid_label=True, x_grid_label=True, padding=5,
+                      x_grid=False, y_grid=False, xmin=0, xmax=120, ymin=0, ymax=7,
+                      pos_hint={'x': .7, 'y': .7}, size_hint=(.3, .3))
 
     def display(self):
         background = Image(source="images/background2.png")
@@ -140,15 +150,24 @@ class GameScreen(Screen):
             appliance.size_hint = (.12, .12)
             self.layout.add_widget(appliance)
 
-        graph = Graph(x_ticks_minor=5,
-                      x_ticks_major=25, y_ticks_major=1,
-                      y_grid_label=True, x_grid_label=True, padding=5,
-                      x_grid=True, y_grid=True, xmin=-0, xmax=100, ymin=-1, ymax=1,
-                      pos_hint={'x': .7, 'y': .7}, size_hint=(.3, .3))
-        self.plot = MeshLinePlot(color=[1, 0, 0, 1])
-        graph.add_plot(self.plot)
-        self.layout.add_widget(graph)
+        self.load_plot = MeshLinePlot(color=[1, 0, 0, 1])
+        self.graph.add_plot(self.load_plot)
+        self.layout.add_widget(self.graph)
+        self.layout.add_widget(self.current_load_label)
         self.add_widget(self.layout)
+        Clock.schedule_interval(self.update, 1.0 / 60.0)
+        Clock.schedule_interval(self.update_graph, 1)
+
+    def update(self, dt):
+        self.game_session.set_current_load()
+        self.current_load_label.text = str(self.game_session.current_load)
+
+    def update_graph(self, dt):
+        if len(self.load_plot.points) >= 100:
+            self.manager.current = 'welcome_screen'
+        else:
+            self.game_session.time += 1
+            self.load_plot.points.append((self.game_session.time % 100, int(self.game_session.current_load)/1000))
 
     def callpopup(self, event):
         dlg = MessageBox(self, titleheader="Confirm", message="Are sure you want to quit the game",
@@ -187,13 +206,6 @@ class EnergyGameApp(App):
         screen_manager.add_widget(game_screen)
 
         return screen_manager
-
-    def set_state(self, state):
-        if state == 'main_game':
-            self.root.current = 'main_game'
-            game = self.root.energy_game
-            game.initialise(0)
-            Clock.schedule_interval(game.update, 1.0 / 60.0)
 
 
 class MessageBox(EnergyGameApp):
