@@ -4,6 +4,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.app import App
 from kivy.uix.label import Label
+from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.image import Image
 from kivy.uix.floatlayout import FloatLayout
@@ -18,27 +19,11 @@ Config.set('graphics', 'height', '480')
 
 
 class GameSession:
-    levels = []
-    level = None
-    welcome_screen = None
-    game_screen = None
-    current_load = 0
-    time = 0
-
-    def __init__(self):
-        pass
-
-    def add_level(self, level):
-        self.levels.append(level)
-
-    def set_level(self, level):
+    def __init__(self, level, start_time, duration):
+        self.time = start_time
         self.level = level
-
-    def set_welcome_screen(self, welcome_screen):
-        self.welcome_screen = welcome_screen
-
-    def set_game_screen(self, game_screen):
-        self.game_screen = game_screen
+        self.duration = duration
+        self.current_load = 0
 
     def set_current_load(self):
         load = 0
@@ -76,19 +61,26 @@ class Appliance(ToggleButtonBehavior, Image):
 
 
 class WelcomeScreen(Screen):
-    layout = FloatLayout()
 
-    def __init__(self, game_session, **kwargs):
+    def __init__(self, levels, **kwargs):
         super(WelcomeScreen, self).__init__(**kwargs)
-        self.game_session = game_session
+        self.layout = FloatLayout()
+        self.levels = levels
         background = Image(source="images/background2.png")
         self.layout.add_widget(background)
         welcome_label = Label(text="Energy Game",
-                            font_size='24dp',
-                            pos_hint={'x': .4, 'y': .7},
+                            font_size='48dp',
+                            pos_hint={'x': .4, 'y': .8},
                             size_hint=(.2, .1))
         self.layout.add_widget(welcome_label)
-        for i, level in enumerate(self.game_session.levels):
+        duration_label = Label(text="Duration (Min)",
+                              font_size='16dp',
+                              pos_hint={'x': .34, 'y': .64},
+                              size_hint=(.2, .1))
+        self.layout.add_widget(duration_label)
+        self.duration = TextInput(text="10", pos_hint={'x': .52, 'y': .65}, size_hint=(.1, .07))
+        self.layout.add_widget(self.duration)
+        for i, level in enumerate(self.levels):
             level_button = Button(text=level.name,
                           font_size='18dp',
                           pos_hint={'x': .375, 'y': 0.55 - (i * 0.076)},
@@ -100,20 +92,22 @@ class WelcomeScreen(Screen):
 
     def changer(self, instance):
         level = int(instance.text.split(" ")[1])
-        self.game_session.set_level(self.game_session.levels[level])
+        duration = int(self.duration.text)
+        game_session = GameSession(self.levels[level], 6 * 3600, duration)
+        game_screen = GameScreen(game_session, name="game_screen")
         try:
-            self.game_session.game_screen.display()
+            game_screen.display()
         except:
             pass
+        self.manager.add_widget(game_screen)
         self.manager.current = 'game_screen'
 
 
 class GameScreen(Screen):
+    time_label = None
     current_load_label = None
-    game_session = None
     level = None
     load_plot = None
-    appliances = []
     locations = [(0.15, 0.15), (0.25, 0.15), (0.38, 0.15), (0.5, 0.15), (0.62, 0.15), (0.73, 0.15)]
     layout = FloatLayout()
 
@@ -133,11 +127,18 @@ class GameScreen(Screen):
     def display(self):
         background = Image(source="images/background2.png")
         clinic = Image(source="images/clinic.png", pos_hint={'x': .15, 'y': -0.05}, size_hint=(.7, .7))
-        sun = Image(source="images/sun.png", pos_hint={'x': .15, 'y': 0.3}, size_hint=(.7, .7))
+        sun = Image(source="images/sun.png", size_hint=(.7, .7))
+        sun.pos_hint = {'x': .15, 'y': 0.3};
 
         self.layout.add_widget(background)
         self.layout.add_widget(clinic)
         self.layout.add_widget(sun)
+
+        self.time_label = Label(text="00:00:00",
+                           font_size='24dp',
+                           pos_hint={'x': .4, 'y': .85},
+                           size_hint=(.2, .1))
+        self.layout.add_widget(self.time_label)
 
         back_button = Button(text="<< Menu",
                               font_size='18dp',
@@ -155,22 +156,28 @@ class GameScreen(Screen):
         self.layout.add_widget(self.graph)
         self.layout.add_widget(self.current_load_label)
         self.add_widget(self.layout)
-        Clock.schedule_interval(self.update, 1.0 / 60.0)
+        Clock.schedule_interval(self.update, 1)
         Clock.schedule_interval(self.update_graph, 1)
 
     def update(self, dt):
+        hour = ("0"+str(self.game_session.time / 3600))[-2:]
+        min = ("0"+str((self.game_session.time / 60) % 60))[-2:]
+        sec = ("0"+str(self.game_session.time % 60))[-2:]
+
+        self.time_label.text = "%s:%s:%s" % (hour, min, sec)
+        self.game_session.time += (12 * 60) / self.game_session.duration
         self.game_session.set_current_load()
         self.current_load_label.text = str(self.game_session.current_load)
 
     def update_graph(self, dt):
         if len(self.load_plot.points) >= 100:
-            self.manager.current = 'welcome_screen'
+            #self.manager.current = 'welcome_screen'
+            pass
         else:
-            self.game_session.time += 1
             self.load_plot.points.append((self.game_session.time % 100, int(self.game_session.current_load)/1000))
 
     def callpopup(self, event):
-        dlg = MessageBox(self, titleheader="Confirm", message="Are sure you want to quit the game",
+        MessageBox(self, titleheader="Confirm", message="Are sure you want to quit the game",
                          options={"YES": "yes()", "NO": "no()"})
 
     def yes(self):
@@ -183,27 +190,20 @@ class GameScreen(Screen):
 
 class EnergyGameApp(App):
     def build(self):
-
-        game_session = GameSession()
-        with open('levels.json') as data_file:
-            levels = json.load(data_file)
-            for level in levels:
-                this_level = Level(level['name'])
-                appliances = []
-                for appliance in level['appliances']:
-                    appliances.append(Appliance(appliance['type'], appliance['icon'], appliance['rating']))
-                this_level.appliances = appliances
-                game_session.add_level(this_level)
-
-        welcome_screen = WelcomeScreen(game_session, name='welcome_screen')
-        game_screen = GameScreen(game_session, name='game_screen')
-
-        game_session.set_welcome_screen(welcome_screen)
-        game_session.set_game_screen(game_screen)
-
         screen_manager = ScreenManager()
+        levels = []
+        with open('levels.json') as data_file:
+            json_levels = json.load(data_file)
+            for json_level in json_levels:
+                level = Level(json_level['name'])
+                appliances = []
+                for appliance in json_level['appliances']:
+                    appliances.append(Appliance(appliance['type'], appliance['icon'], appliance['rating']))
+                level.appliances = appliances
+                levels.append(level)
+
+        welcome_screen = WelcomeScreen(levels, name='welcome_screen')
         screen_manager.add_widget(welcome_screen)
-        screen_manager.add_widget(game_screen)
 
         return screen_manager
 
