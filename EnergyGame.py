@@ -35,14 +35,17 @@ class GameSession:
 
 
 class Level:
-    appliances = []
-    name = None
 
     def __init__(self, name):
         self.name = name
+        self.appliances = []
 
-    def add_appliance(self, appliance):
-        self.appliances.append(appliance)
+    @staticmethod
+    def make_level(json):
+        level = Level(json['name'])
+        for appliance in json['appliances']:
+            level.appliances.append(Appliance(appliance['type'], appliance['icon'], appliance['rating']))
+        return level
 
 
 class Appliance(ToggleButtonBehavior, Image):
@@ -61,11 +64,13 @@ class Appliance(ToggleButtonBehavior, Image):
 
 
 class WelcomeScreen(Screen):
+    json_levels = None
+    with open('levels.json') as data_file:
+        json_levels = json.load(data_file)
 
-    def __init__(self, levels, **kwargs):
+    def __init__(self, **kwargs):
         super(WelcomeScreen, self).__init__(**kwargs)
         self.layout = FloatLayout()
-        self.levels = levels
         background = Image(source="images/background2.png")
         self.layout.add_widget(background)
         welcome_label = Label(text="Energy Game",
@@ -80,8 +85,8 @@ class WelcomeScreen(Screen):
         self.layout.add_widget(duration_label)
         self.duration = TextInput(text="10", pos_hint={'x': .52, 'y': .65}, size_hint=(.1, .07))
         self.layout.add_widget(self.duration)
-        for i, level in enumerate(self.levels):
-            level_button = Button(text=level.name,
+        for i, level in enumerate(WelcomeScreen.json_levels):
+            level_button = Button(text=level['name'],
                           font_size='18dp',
                           pos_hint={'x': .375, 'y': 0.55 - (i * 0.076)},
                           size_hint=(.25, .075))
@@ -91,31 +96,27 @@ class WelcomeScreen(Screen):
         self.add_widget(self.layout)
 
     def changer(self, instance):
-        level = int(instance.text.split(" ")[1])
+        level = Level.make_level(WelcomeScreen.json_levels[int(instance.text.split(" ")[1])])
         duration = int(self.duration.text)
-        game_session = GameSession(self.levels[level], 6 * 3600, duration)
+        game_session = GameSession(level, 6 * 3600, duration)
         game_screen = GameScreen(game_session, name="game_screen")
-        try:
-            game_screen.display()
-        except:
-            pass
+        game_screen.display()
         self.manager.add_widget(game_screen)
         self.manager.current = 'game_screen'
 
 
 class GameScreen(Screen):
-    time_label = None
-    current_load_label = None
-    level = None
-    load_plot = None
-    locations = [(0.15, 0.15), (0.25, 0.15), (0.38, 0.15), (0.5, 0.15), (0.62, 0.15), (0.73, 0.15)]
-    layout = FloatLayout()
 
     def update(self, dt):
         self.load_plot.points = [(x, sin(x / 10.)) for x in range(0, 101)]
 
     def __init__(self, game_session, **kwargs):
         super(GameScreen, self).__init__(**kwargs)
+        self.time_label = None
+        self.current_load_label = None
+        self.load_plot = None
+        self.locations = [(0.15, 0.15), (0.25, 0.15), (0.38, 0.15), (0.5, 0.15), (0.62, 0.15), (0.73, 0.15)]
+        self.layout = FloatLayout()
         self.game_session = game_session
         self.current_load_label = Label(text=str(self.game_session.current_load))
         self.graph = Graph(x_ticks_minor=10,
@@ -183,6 +184,7 @@ class GameScreen(Screen):
     def yes(self):
         self.game_session.level = None
         self.manager.current = 'welcome_screen'
+        self.manager.remove_widget(self)
 
     def no(self):
         pass
@@ -191,18 +193,7 @@ class GameScreen(Screen):
 class EnergyGameApp(App):
     def build(self):
         screen_manager = ScreenManager()
-        levels = []
-        with open('levels.json') as data_file:
-            json_levels = json.load(data_file)
-            for json_level in json_levels:
-                level = Level(json_level['name'])
-                appliances = []
-                for appliance in json_level['appliances']:
-                    appliances.append(Appliance(appliance['type'], appliance['icon'], appliance['rating']))
-                level.appliances = appliances
-                levels.append(level)
-
-        welcome_screen = WelcomeScreen(levels, name='welcome_screen')
+        welcome_screen = WelcomeScreen(name='welcome_screen')
         screen_manager.add_widget(welcome_screen)
 
         return screen_manager
