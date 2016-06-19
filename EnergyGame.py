@@ -122,7 +122,7 @@ class GameScreen(Screen):
         self.graph = Graph(x_ticks_minor=10,
                       x_ticks_major=30, y_ticks_major=1,
                       y_grid_label=True, x_grid_label=True, padding=5,
-                      x_grid=False, y_grid=False, xmin=0, xmax=120, ymin=0, ymax=7,
+                      x_grid=False, y_grid=False, xmin=0, xmax=24, ymin=0, ymax=10,
                       pos_hint={'x': .7, 'y': .7}, size_hint=(.3, .3))
 
     def display(self):
@@ -175,7 +175,7 @@ class GameScreen(Screen):
             #self.manager.current = 'welcome_screen'
             pass
         else:
-            self.load_plot.points.append((self.game_session.time % 100, int(self.game_session.current_load)/1000))
+            self.load_plot.points.append((self.game_session.time / 1800, int(self.game_session.current_load) / 1000))
 
     def callpopup(self, event):
         MessageBox(self, titleheader="Confirm", message="Are sure you want to quit the game",
