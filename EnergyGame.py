@@ -9,7 +9,6 @@ from kivy.uix.button import Button
 from kivy.uix.image import Image
 from kivy.uix.floatlayout import FloatLayout
 from math import sin
-from kivy.garden.graph import Graph, MeshLinePlot
 import json
 from kivy.clock import Clock
 from kivy.config import Config
@@ -20,12 +19,15 @@ Config.set('graphics', 'height', '480')
 
 
 class GameSession:
-    def __init__(self, level, start_time, duration):
-        self.time = start_time
+    def __init__(self, level, start_hour, duration):
+        self.time = start_hour * 3600
         self.level = level
         self.duration = duration
         self.current_load = 0
         self.iteration = 0
+
+    def current_time(self):
+        return self.time / 3600, (self.time / 60) % 60, self.time % 60
 
     def set_current_load(self):
         load = 0
@@ -41,10 +43,12 @@ class Level:
     def __init__(self, name):
         self.name = name
         self.appliances = []
+        self.supply = []
 
     @staticmethod
     def make_level(json):
         level = Level(json['name'])
+        level.supply = json['supply']
         for appliance in json['appliances']:
             level.appliances.append(Appliance(appliance['type'], appliance['icon'], appliance['rating']))
         return level
@@ -100,7 +104,7 @@ class WelcomeScreen(Screen):
     def changer(self, instance):
         level = Level.make_level(WelcomeScreen.json_levels[int(instance.text.split(" ")[1])])
         duration = int(self.duration.text)
-        game_session = GameSession(level, 6 * 3600, duration)
+        game_session = GameSession(level, 6, duration)
         game_screen = GameScreen(game_session, name="game_screen")
         game_screen.display()
         self.manager.add_widget(game_screen)
@@ -121,11 +125,6 @@ class GameScreen(Screen):
         self.layout = FloatLayout()
         self.game_session = game_session
         self.current_load_label = Label(text=str(self.game_session.current_load))
-        self.graph = Graph(x_ticks_minor=10,
-                      x_ticks_major=30, y_ticks_major=1,
-                      y_grid_label=True, x_grid_label=True, padding=5,
-                      x_grid=False, y_grid=False, xmin=0, xmax=24, ymin=0, ymax=10,
-                      pos_hint={'x': .0, 'y': .7}, size_hint=(1.0, .3))
 
     def display(self):
         background = Image(source="images/background2.png")
@@ -154,48 +153,47 @@ class GameScreen(Screen):
             appliance.size_hint = (.12, .12)
             self.layout.add_widget(appliance)
 
-
-        self.load_plot = MeshLinePlot(color=[1, 0, 0, 1])
-        self.graph.add_plot(self.load_plot)
-        self.layout.add_widget(self.graph)
         self.layout.add_widget(self.current_load_label)
         self.add_widget(self.layout)
         Clock.schedule_interval(self.update, 1)
-        Clock.schedule_interval(self.update_graph, 1)
 
     def update(self, dt):
-        self.game_session.iteration += 1
-        hour = ("0"+str(self.game_session.time / 3600))[-2:]
-        min = ("0"+str((self.game_session.time / 60) % 60))[-2:]
-        sec = ("0"+str(self.game_session.time % 60))[-2:]
+        current_time = self.game_session.current_time()
+        current_supply = self.game_session.level.supply[current_time[0]]
+        current_load = self.game_session.current_load
+        balance = current_supply - current_load
+
+        hour = ("0"+str(current_time[0]))[-2:]
+        min = ("0"+str(current_time[1]))[-2:]
+        sec = ("0"+str(current_time[2]))[-2:]
 
         self.time_label.text = "%s:%s:%s" % (hour, min, sec)
         self.game_session.time += (12 * 60) / self.game_session.duration
         self.game_session.set_current_load()
         self.current_load_label.text = str(self.game_session.current_load)
 
-
-        rect_width = 1
-        rect_height = 120
+        rect_width = 5
+        rect_height = 100
         full_height = 480
-        full_width = 800
         space = 1
-        number_rectangles = full_width / (rect_width + space)
 
-        rectangles = []
         with self.layout.canvas:
+            # plot supply
+            Color(0, 1, 0, 1.0, mode='rgba')
+            Rectangle(pos=(self.game_session.iteration * (rect_width + space), full_height - rect_height),
+                      size=(rect_width, self.game_session.level.supply[current_time[0]]/rect_height))
+            # plot load
             Color(0, 0, 1, 1.0, mode='rgba')
             Rectangle(pos=(self.game_session.iteration * (rect_width + space), full_height - rect_height),
                       size=(rect_width, self.game_session.current_load/rect_height))
 
+            # plot overload (battery used)
+            Color(1, 0, 1, 1.0, mode='rgba')
+            if balance < 0:
+                Rectangle(pos=(self.game_session.iteration * (rect_width + space), full_height - rect_height + current_load / rect_height),
+                          size=(rect_width, balance/rect_height))
+        self.game_session.iteration += 1
 
-    def update_graph(self, dt):
-        if len(self.load_plot.points) >= 100:
-            #self.manager.current = 'welcome_screen'
-            pass
-        else:
-            #self.load_plot.points.append((self.game_session.time / 1800, int(self.game_session.current_load) / 1000))
-            pass
 
     def callpopup(self, event):
         MessageBox(self, titleheader="Confirm", message="Are sure you want to quit the game",
