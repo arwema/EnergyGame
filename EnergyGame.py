@@ -13,6 +13,7 @@ from kivy.garden.graph import Graph, MeshLinePlot
 import json
 from kivy.clock import Clock
 from kivy.config import Config
+from kivy.graphics import Rectangle, Color
 from kivy.uix.screenmanager import Screen, ScreenManager
 Config.set('graphics', 'width', '800')
 Config.set('graphics', 'height', '480')
@@ -24,6 +25,7 @@ class GameSession:
         self.level = level
         self.duration = duration
         self.current_load = 0
+        self.iteration = 0
 
     def set_current_load(self):
         load = 0
@@ -123,7 +125,7 @@ class GameScreen(Screen):
                       x_ticks_major=30, y_ticks_major=1,
                       y_grid_label=True, x_grid_label=True, padding=5,
                       x_grid=False, y_grid=False, xmin=0, xmax=24, ymin=0, ymax=10,
-                      pos_hint={'x': .7, 'y': .7}, size_hint=(.3, .3))
+                      pos_hint={'x': .0, 'y': .7}, size_hint=(1.0, .3))
 
     def display(self):
         background = Image(source="images/background2.png")
@@ -137,13 +139,13 @@ class GameScreen(Screen):
 
         self.time_label = Label(text="00:00:00",
                            font_size='24dp',
-                           pos_hint={'x': .4, 'y': .85},
+                           pos_hint={'x': .4, 'y': .01},
                            size_hint=(.2, .1))
         self.layout.add_widget(self.time_label)
 
         back_button = Button(text="<< Menu",
                               font_size='18dp',
-                              pos_hint={'x': .05, 'y': 0.85},
+                              pos_hint={'x': .01, 'y': 0.01},
                               size_hint=(.15, .075), on_press=self.callpopup)
         self.layout.add_widget(back_button)
 
@@ -151,6 +153,7 @@ class GameScreen(Screen):
             appliance.pos_hint = {'x': self.locations[i][0], 'y': self.locations[i][1]}
             appliance.size_hint = (.12, .12)
             self.layout.add_widget(appliance)
+
 
         self.load_plot = MeshLinePlot(color=[1, 0, 0, 1])
         self.graph.add_plot(self.load_plot)
@@ -161,6 +164,7 @@ class GameScreen(Screen):
         Clock.schedule_interval(self.update_graph, 1)
 
     def update(self, dt):
+        self.game_session.iteration += 1
         hour = ("0"+str(self.game_session.time / 3600))[-2:]
         min = ("0"+str((self.game_session.time / 60) % 60))[-2:]
         sec = ("0"+str(self.game_session.time % 60))[-2:]
@@ -170,12 +174,28 @@ class GameScreen(Screen):
         self.game_session.set_current_load()
         self.current_load_label.text = str(self.game_session.current_load)
 
+
+        rect_width = 1
+        rect_height = 120
+        full_height = 480
+        full_width = 800
+        space = 1
+        number_rectangles = full_width / (rect_width + space)
+
+        rectangles = []
+        with self.layout.canvas:
+            Color(0, 0, 1, 1.0, mode='rgba')
+            Rectangle(pos=(self.game_session.iteration * (rect_width + space), full_height - rect_height),
+                      size=(rect_width, self.game_session.current_load/rect_height))
+
+
     def update_graph(self, dt):
         if len(self.load_plot.points) >= 100:
             #self.manager.current = 'welcome_screen'
             pass
         else:
-            self.load_plot.points.append((self.game_session.time / 1800, int(self.game_session.current_load) / 1000))
+            #self.load_plot.points.append((self.game_session.time / 1800, int(self.game_session.current_load) / 1000))
+            pass
 
     def callpopup(self, event):
         MessageBox(self, titleheader="Confirm", message="Are sure you want to quit the game",
