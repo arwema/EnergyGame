@@ -25,6 +25,7 @@ class GameSession:
         self.duration = duration
         self.current_load = 0
         self.iteration = 0
+        self.battery = 0
 
     def current_time(self):
         return self.time / 3600, (self.time / 60) % 60, self.time % 60
@@ -162,6 +163,7 @@ class GameScreen(Screen):
         current_supply = self.game_session.level.supply[current_time[0]]
         current_load = self.game_session.current_load
         balance = current_supply - current_load
+
 
         hour = ("0"+str(current_time[0]))[-2:]
         min = ("0"+str(current_time[1]))[-2:]
