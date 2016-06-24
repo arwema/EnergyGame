@@ -10,7 +10,12 @@
       {"type":"centrifuge", "rating":4020, "icon": "images/warmer.png"}
     ],
     "supply":[0, 0, 0, 0, 0, 0, 4000, 5000, 6000, 7000, 7000, 8000, 9000, 7000, 6000, 5000, 4000, 3000, 2000],
-    "battery": 1000
+    "battery": 1000,
+    "rain":[
+      {"start": 7, "end": 8, "level": 0.7},
+      {"start": 9, "end": 12, "level": 0.7},
+      {"start": 16, "end": 18, "level": 0.4}
+    ]
 
   },
   {

@@ -47,6 +47,7 @@ class Level:
         self.appliances = []
         self.supply = []
         self.battery = 0
+        self.rain = [0] * 24
 
     @staticmethod
     def make_level(json):
@@ -55,6 +56,9 @@ class Level:
         level.battery = json['battery']
         for appliance in json['appliances']:
             level.appliances.append(Appliance(appliance['type'], appliance['icon'], appliance['rating']))
+        for rain in json['rain']:
+            for hour in range(rain['start'], rain['end']):
+                level.rain[hour] = rain['level']
         return level
 
 
@@ -166,8 +170,10 @@ class GameScreen(Screen):
 
     def add_drop(self, dt):
         drop = Drop()
-        self.game_session.rain.append(drop)
-        self.layout.add_widget(drop)
+        time = self.game_session.current_time()
+        if self.game_session.level.rain[time[0]] > 0:
+            self.game_session.rain.append(drop)
+            self.layout.add_widget(drop)
 
     def move_rain(self, dt):
         for i, drop in enumerate(self.game_session.rain):

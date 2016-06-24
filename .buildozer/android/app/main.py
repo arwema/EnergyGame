@@ -8,8 +8,8 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.image import Image
 from kivy.uix.floatlayout import FloatLayout
-from math import sin
 import json
+import random
 from kivy.clock import Clock
 from kivy.config import Config
 from kivy.graphics import Rectangle, Color
@@ -26,6 +26,7 @@ class GameSession:
         self.current_load = 0
         self.iteration = 0
         self.battery = 0
+        self.rain = []
 
     def current_time(self):
         return self.time / 3600, (self.time / 60) % 60, self.time % 60
@@ -45,11 +46,13 @@ class Level:
         self.name = name
         self.appliances = []
         self.supply = []
+        self.battery = 0
 
     @staticmethod
     def make_level(json):
         level = Level(json['name'])
         level.supply = json['supply']
+        level.battery = json['battery']
         for appliance in json['appliances']:
             level.appliances.append(Appliance(appliance['type'], appliance['icon'], appliance['rating']))
         return level
@@ -114,9 +117,6 @@ class WelcomeScreen(Screen):
 
 class GameScreen(Screen):
 
-    def update(self, dt):
-        self.load_plot.points = [(x, sin(x / 10.)) for x in range(0, 101)]
-
     def __init__(self, game_session, **kwargs):
         super(GameScreen, self).__init__(**kwargs)
         self.time_label = None
@@ -136,6 +136,10 @@ class GameScreen(Screen):
         self.layout.add_widget(background)
         self.layout.add_widget(clinic)
         self.layout.add_widget(sun)
+
+        if self.game_session.level.battery > 0:
+            battery = Image(source="images/battery.png", size_hint=(.3, .38), pos_hint={'x': .1, 'y': .2})
+            self.layout.add_widget(battery)
 
         self.time_label = Label(text="00:00:00",
                            font_size='24dp',
@@ -157,13 +161,27 @@ class GameScreen(Screen):
         self.layout.add_widget(self.current_load_label)
         self.add_widget(self.layout)
         Clock.schedule_interval(self.update, 1)
+        Clock.schedule_interval(self.add_drop, 1/20)
+        Clock.schedule_interval(self.move_rain, 1/20)
+
+    def add_drop(self, dt):
+        drop = Drop()
+        self.game_session.rain.append(drop)
+        self.layout.add_widget(drop)
+
+    def move_rain(self, dt):
+        for i, drop in enumerate(self.game_session.rain):
+            drop.pos_hint = {'y': drop.pos_hint.get('y') - .01, 'x': drop.pos_hint.get('x')}
+            if drop.pos_hint.get('y') < 0:
+                self.layout.remove_widget(drop)
+                del self.game_session.rain[i]
+                del drop
 
     def update(self, dt):
         current_time = self.game_session.current_time()
         current_supply = self.game_session.level.supply[current_time[0]]
         current_load = self.game_session.current_load
         balance = current_supply - current_load
-
 
         hour = ("0"+str(current_time[0]))[-2:]
         min = ("0"+str(current_time[1]))[-2:]
@@ -196,7 +214,6 @@ class GameScreen(Screen):
                           size=(rect_width, balance/rect_height))
         self.game_session.iteration += 1
 
-
     def callpopup(self, event):
         MessageBox(self, titleheader="Confirm", message="Are sure you want to quit the game",
                          options={"YES": "yes()", "NO": "no()"})
@@ -204,7 +221,9 @@ class GameScreen(Screen):
     def yes(self):
         self.game_session.level = None
         self.manager.current = 'welcome_screen'
+        # Todo: Clock unschedule
         self.manager.remove_widget(self)
+
 
     def no(self):
         pass
@@ -252,6 +271,11 @@ class MessageBox(EnergyGameApp):
         if self.retvalue and self.options[self.retvalue] != "":
             command = "self.parent."+self.options[self.retvalue]
             exec command
+
+
+class Drop(Image):
+    def __init__(self, **kwargs):
+        super(Drop, self).__init__(source="images/droplet.png", size_hint=(.3, .38), pos_hint={'x': random.random(), 'y': .8})
 
 if __name__ == "__main__":
     EnergyGameApp().run()
